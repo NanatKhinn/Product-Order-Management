@@ -1,0 +1,270 @@
+﻿@inject IConfiguration Configuration
+
+@{
+    ViewData["Title"] = "Admin - Order Management";
+    var apiUrl = Configuration["ApiSettings:BaseUrl"];
+}
+
+<div id="root" class="container mt-4"></div>
+
+<script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.26.4/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+
+<script type="text/babel">
+
+    const API_BASE_URL = '@apiUrl';
+
+    function AdminOrderApp() {
+
+        const [orders, setOrders] = React.useState([]);
+        const [loading, setLoading] = React.useState(true);
+        const [message, setMessage] = React.useState({ text: '', type: '' });
+
+        const [pageNumber, setPageNumber] = React.useState(1);
+        const [totalPages, setTotalPages] = React.useState(1);
+        const [totalRecords, setTotalRecords] = React.useState(0);
+
+        const pageSize = 10;
+
+        const token = localStorage.getItem('token');
+
+        const headers = {
+            Authorization: `Bearer ${token}`
+        };
+
+        // Get All Orders from All Users
+        const fetchAllOrders = async (page = 1) => {
+            try {
+                setLoading(true);
+
+                const response = await axios.get(
+                    `${API_BASE_URL}/order/get-all-orders?pageNumber=${page}&pageSize=${pageSize}`,
+                    { headers }
+                );
+
+                const resultData = response.data;
+
+                const orderList =
+                    resultData.data ||
+                    resultData.Data ||
+                    [];
+
+                setOrders(orderList);
+
+                setPageNumber(resultData.pageNumber || resultData.PageNumber || 1);
+                setTotalPages(resultData.totalPages || resultData.TotalPages || 1);
+                setTotalRecords(resultData.totalRecords || resultData.TotalRecords || 0);
+
+                setMessage({ text: '', type: '' });
+
+            } catch (err) {
+                console.error("Error fetching orders:", err.response?.data);
+
+                setOrders([]);
+
+                setMessage({
+                    text: err.response?.data?.message || 'Failed to load orders. Please check your Admin authorization.',
+                    type: 'danger'
+                });
+
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        React.useEffect(() => {
+            fetchAllOrders(1);
+        }, []);
+
+        const handlePageChange = (page) => {
+            if (page < 1 || page > totalPages) return;
+            fetchAllOrders(page);
+        };
+
+        const handleRefresh = () => {
+            fetchAllOrders(pageNumber);
+        };
+
+        return (
+            <div className="container">
+
+                <div className="d-flex justify-content-between align-items-center mb-4">
+                    <div>
+                        <h2 className="text-primary font-weight-bold">
+                            Admin Order Management
+                        </h2>
+                        <p className="text-muted">
+                            View orders from all customers.
+                        </p>
+                    </div>
+
+                    <button
+                        className="btn btn-outline-primary"
+                        onClick={handleRefresh}
+                        disabled={loading}
+                    >
+                        Refresh
+                    </button>
+                </div>
+
+                {message.text && (
+                    <div className={`alert alert-${message.type}`} role="alert">
+                        {message.text}
+                    </div>
+                )}
+
+                <div className="card shadow-sm p-3 mb-4">
+                    <h6 className="text-muted">Total Orders</h6>
+                    <h3 className="text-primary">{totalRecords}</h3>
+                </div>
+
+                <div className="card shadow-sm p-4">
+
+                    <h4 className="mb-3">All Customer Orders</h4>
+
+                    {loading ? (
+                        <div className="text-center p-4">
+                            <div className="spinner-border text-primary"></div>
+                            <p className="mt-2">Loading orders...</p>
+                        </div>
+                    ) : orders.length === 0 ? (
+                        <div className="alert alert-info">
+                            No orders found.
+                        </div>
+                    ) : (
+                        <div className="table-responsive">
+
+                            <table className="table table-bordered table-striped align-middle">
+
+                                <thead className="table-dark">
+                                    <tr>
+                                        <th>Customer Name</th>
+                                        <th>Order ID</th>
+                                        <th>Order Date</th>
+                                        <th>Product Name</th>
+                                        <th>Quantity</th>
+                                        <th>Total Amount</th>
+                                    </tr>
+                                </thead>
+
+                                <tbody>
+                                    {orders.map(order => {
+
+                                        const orderId = order.id || order.Id;
+
+                                        const orderDate = order.orderDate || order.OrderDate;
+
+                                        const totalAmount = order.totalAmount ?? order.TotalAmount;
+
+                                        const user = order.user || order.User;
+
+                                        const customerName =
+                                            user?.userName ||
+                                            user?.UserName ||
+                                            user?.email ||
+                                            user?.Email ||
+                                            'Unknown Customer';
+
+                                        const items = order.orderItems || order.OrderItems || [];
+
+                                        if (items.length === 0) {
+                                            return (
+                                                <tr key={orderId}>
+                                                    <td>{customerName}</td>
+                                                    <td>#{orderId}</td>
+                                                    <td>{orderDate ? new Date(orderDate).toLocaleString() : '-'}</td>
+                                                    <td>-</td>
+                                                    <td>-</td>
+                                                    <td>${Number(totalAmount || 0).toFixed(2)}</td>
+                                                </tr>
+                                            );
+                                        }
+
+                                        return items.map((item, index) => {
+
+                                            const product = item.product || item.Product;
+
+                                            const productName =
+                                                product?.name ||
+                                                product?.Name ||
+                                                `Product ID: ${item.productId || item.ProductId}`;
+
+                                            const quantity = item.quantity ?? item.Quantity;
+
+                                            return (
+                                                <tr key={`${orderId}-${index}`}>
+
+                                                    {index === 0 && (
+                                                        <td rowSpan={items.length}>
+                                                            <strong>{customerName}</strong>
+                                                        </td>
+                                                    )}
+
+                                                    {index === 0 && (
+                                                        <td rowSpan={items.length}>#{orderId}</td>
+                                                    )}
+
+                                                    {index === 0 && (
+                                                        <td rowSpan={items.length}>
+                                                            {orderDate ? new Date(orderDate).toLocaleString() : '-'}
+                                                        </td>
+                                                    )}
+
+                                                    <td>{productName}</td>
+
+                                                    <td>{quantity}</td>
+
+                                                    {index === 0 && (
+                                                        <td rowSpan={items.length} className="fw-bold text-success">
+                                                            ${Number(totalAmount || 0).toFixed(2)}
+                                                        </td>
+                                                    )}
+
+                                                </tr>
+                                            );
+                                        });
+                                    })}
+                                </tbody>
+
+                            </table>
+                        </div>
+                    )}
+
+                    {!loading && orders.length > 0 && (
+                        <div className="d-flex justify-content-between align-items-center mt-3">
+
+                            <small className="text-muted">
+                                Page {pageNumber} of {totalPages}
+                            </small>
+
+                            <div>
+                                <button
+                                    className="btn btn-outline-primary btn-sm me-2"
+                                    onClick={() => handlePageChange(pageNumber - 1)}
+                                    disabled={pageNumber <= 1}
+                                >
+                                    Previous
+                                </button>
+
+                                <button
+                                    className="btn btn-outline-primary btn-sm"
+                                    onClick={() => handlePageChange(pageNumber + 1)}
+                                    disabled={pageNumber >= totalPages}
+                                >
+                                    Next
+                                </button>
+                            </div>
+
+                        </div>
+                    )}
+
+                </div>
+            </div>
+        );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<AdminOrderApp />);
+
+</script>

@@ -10,32 +10,31 @@ public class ProductController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
 
-    // Dependency Injection မှတစ်ဆင့် Database Context ကို ခေါ်သုံးခြင်း
+  
     public ProductController(ApplicationDbContext context)
     {
         _context = context;
     }
 
-    // 1. Get All Products (Login ဝင်ထားသူတိုင်း ဝင်ကြည့်နိုင်သည်)
-    [HttpGet]
-    [Authorize]
+    // 1. Get All Products
+    [HttpGet("get-all-products")]
     public async Task<IActionResult> GetProducts()
     {
-        // Database ထဲရှိ Product အားလုံးကို ဆွဲထုတ်ခြင်း
         var products = await _context.Products.ToListAsync();
         return Ok(products);
     }
 
-    // 2. Create Product (Admin Role ရှိသူသာ Product အသစ် ထည့်နိုင်သည်)
-    [HttpPost]
+    // 2. Create Product 
+    [HttpPost("create-product")]
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> CreateProduct([FromBody] ProductDto model)
     {
+        Console.WriteLine($"Is User in 'Admin' Role? {User.IsInRole("Admin")}");
         foreach (var claim in User.Claims)
         {
-            Console.WriteLine($"CLAIM TYPE: {claim.Type} | VALUE: {claim.Value}");
+            Console.WriteLine($"Current Claim -> Type: {claim.Type}, Value: {claim.Value}");
         }
-        // DTO မှ Model သို့ Data ကူးပြောင်းခြင်း (Mapping)
+
         var product = new Product
         {
 
@@ -45,10 +44,9 @@ public class ProductController : ControllerBase
             Stock = model.Stock
         };
 
-        // Database ထဲသို့ အသစ်ထည့်ရန် Add လုပ်ခြင်း
+        
         await _context.Products.AddAsync(product);
 
-        // Database ထဲသို့ အပြီးအပိုင် သိမ်းဆည်းခြင်း (Commit)
         await _context.SaveChangesAsync();
 
         return Ok(new
@@ -56,5 +54,59 @@ public class ProductController : ControllerBase
             message = "Product created and saved to database successfully by Admin!",
             product = product
         });
+    }
+
+    // 3. Update Product 
+    [HttpPatch("update-product/{id}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> PatchProduct(int id, [FromBody] UpdateProductDto model)
+    {
+        var product = await _context.Products.FindAsync(id);
+        if (product == null)
+        {
+            return NotFound(new { message = $"Product with ID {id} not found." });
+        }
+
+        
+        if (model.Name != null)
+        {
+            product.Name = model.Name;
+        }
+        if (model.Price.HasValue)
+        {
+            product.Price = model.Price.Value;
+        }
+        if (model.Description != null)
+        {
+            product.Description = model.Description;
+        }
+        if (model.Stock.HasValue)
+        {
+            product.Stock = model.Stock.Value;
+        }
+
+        _context.Products.Update(product);
+        await _context.SaveChangesAsync();
+
+        return Ok(new
+        {
+            message = $"Product with ID {id} patched successfully!",
+            product = product
+        });
+    }
+
+    // 3. Get Product By ID 
+    [HttpGet("get-product-by/{id}")]
+    public async Task<IActionResult> GetProductById(int id)
+    {
+       
+        var product = await _context.Products.FindAsync(id);
+
+        if (product == null)
+        {
+            return NotFound(new { message = $"Product with ID {id} not found." });
+        }
+
+        return Ok(product);
     }
 }

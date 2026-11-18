@@ -1,8 +1,214 @@
-﻿@{
-    ViewData["Title"] = "Home Page";
+﻿@inject IConfiguration Configuration
+@{
+    ViewData["Title"] = "Login & Register";
+    var apiUrl = Configuration["ApiSettings:BaseUrl"];
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
-</div>
+<div id="root" class="container mt-5" style="max-width: 450px;"></div>
+
+
+<script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+<script src="https://unpkg.com/@@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+
+<script type="text/babel">
+    const API_BASE_URL = '@apiUrl';
+
+    function AuthApp() {
+        const [isLogin, setIsLogin] = React.useState(true);
+        const [formData, setFormData] = React.useState({
+            userName: '',
+            email: '',
+            loginID: '',
+            password: '',
+            role: 'Admin'
+        });
+        const [message, setMessage] = React.useState({ text: '', type: '' });
+
+        const handleChange = (e) => {
+            const { name, value } = e.target;
+            setFormData(prev => ({
+                ...prev,
+                [name]: value
+            }));
+        };
+
+        const handleLogin = async (e) => {
+            e.preventDefault();
+            try {
+                const response = await axios.post(`${API_BASE_URL}/auth/login`, {
+                    loginID: formData.loginID,
+                    password: formData.password
+                });
+
+                const token = response.data.token;
+                localStorage.setItem('token', token);
+                setMessage({ text: 'Login successful! Redirecting...', type: 'success' });
+
+               
+                const decodedToken = parseJwt(token);
+                console.log("Decoded JWT Token:", decodedToken); 
+
+                
+                const userRole = decodedToken ? (
+                    decodedToken["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] || 
+                    decodedToken["role"] || 
+                    decodedToken["Role"] ||
+                    decodedToken["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/role"]
+                ) : 'User';
+
+                console.log("Detected User Role:", userRole);
+
+                setTimeout(() => {
+                    
+                    if (userRole && userRole.toLowerCase() === 'admin') {
+                        
+                        window.location.href = '/Home/ProductManagement';
+                    } else {
+                       
+                        window.location.href = '/Home/Order';
+                    }
+                }, 1000);
+
+            } catch (err) {
+                console.error("Login error:", err.response?.data);
+                setMessage({ text: err.response?.data?.message || 'Invalid LoginID or Password.', type: 'danger' });
+            }
+        };
+
+        const handleRegister = async (e) => {
+            e.preventDefault();
+            try {
+               
+                console.log("Submitting Register Data:", formData);
+
+                await axios.post(`${API_BASE_URL}/auth/register`, {
+                    userName: formData.userName,
+                    email: formData.email,
+                    password: formData.password,
+                    role: formData.role
+                });
+                setMessage({ text: 'Registration successful! Please login.', type: 'success' });
+                setIsLogin(true);
+            } catch (err) {
+                console.log("Full Error Data:", JSON.stringify(err.response?.data, null, 2));
+
+                const errorData = err.response?.data;
+                let errorMsg = 'Registration failed.';
+
+                if (Array.isArray(errorData)) {
+                    errorMsg = errorData.map(e => e.description || e.message || JSON.stringify(e)).join(', ');
+                } else if (errorData?.errors) {
+                    errorMsg = Object.values(errorData.errors).flat().join(', ');
+                } else if (typeof errorData === 'string') {
+                    errorMsg = errorData;
+                } else if (errorData?.message) {
+                    errorMsg = errorData.message;
+                }
+
+                setMessage({ text: errorMsg, type: 'danger' });
+            }
+        };
+
+        return (
+            <div className="card shadow-sm p-4">
+                <h3 className="text-center mb-3">{isLogin ? 'Login' : 'Register'}</h3>
+
+                {message.text && (
+                    <div className={`alert alert-${message.type}`} role="alert">
+                        {message.text}
+                    </div>
+                )}
+
+                {isLogin ? (
+                    <form onSubmit={handleLogin}>
+                        <div className="mb-3">
+                            <label className="form-label">Username or Email (LoginID)</label>
+                            <input
+                                type="text"
+                                name="loginID"
+                                className="form-control"
+                                value={formData.loginID || ''}
+                                onChange={handleChange}
+                                required
+                            />
+                        </div>
+                        <div className="mb-3">
+                            <label className="form-label">Password</label>
+                            <input
+                                type="password"
+                                name="password"
+                                className="form-control"
+                                value={formData.password || ''}
+                                onChange={handleChange}
+                                required
+                            />
+                        </div>
+                        <button type="submit" className="btn btn-primary w-100">Login</button>
+                    </form>
+                ) : (
+                    <form onSubmit={handleRegister}>
+                        <div className="mb-3">
+                            <label className="form-label">Username</label>
+                            <input
+                                type="text"
+                                name="userName"
+                                className="form-control"
+                                value={formData.userName || ''}
+                                onChange={handleChange}
+                                required
+                            />
+                        </div>
+                        <div className="mb-3">
+                            <label className="form-label">Email</label>
+                            <input
+                                type="email"
+                                name="email"
+                                className="form-control"
+                                value={formData.email || ''}
+                                onChange={handleChange}
+                                required
+                            />
+                        </div>
+                        <div className="mb-3">
+                            <label className="form-label">Password</label>
+                            <input
+                                type="password"
+                                name="password"
+                                className="form-control"
+                                value={formData.password || ''}
+                                onChange={handleChange}
+                                required
+                            />
+                        </div>
+                        <div className="mb-3">
+                            <label className="form-label">Role</label>
+                            <select
+                                name="role"
+                                className="form-control"
+                                value={formData.role || 'Admin'}
+                                onChange={handleChange}
+                            >
+                                <option value="Admin">Admin</option>
+                                <option value="User">User</option>
+                            </select>
+                        </div>
+                        <button type="submit" className="btn btn-success w-100">Register</button>
+                    </form>
+                )}
+
+                <div className="text-center mt-3">
+                    <button
+                        className="btn btn-link text-decoration-none"
+                        onClick={() => { setIsLogin(!isLogin); setMessage({ text: '', type: '' }); }}
+                    >
+                        {isLogin ? "Don't have an account? Register here" : "Already have an account? Login here"}
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<AuthApp />);
+</script>

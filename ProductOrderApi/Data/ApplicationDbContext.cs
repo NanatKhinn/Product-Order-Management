@@ -16,7 +16,7 @@ namespace ProductOrderApi.Data
         {
             base.OnModelCreating(builder);
 
-            // Decimal precision သတ်မှတ်ခြင်း
+            
             builder.Entity<Product>().Property(p => p.Price).HasColumnType("decimal(18,2)");
             builder.Entity<Order>().Property(o => o.TotalAmount).HasColumnType("decimal(18,2)");
             builder.Entity<OrderItem>().Property(oi => oi.UnitPrice).HasColumnType("decimal(18,2)");

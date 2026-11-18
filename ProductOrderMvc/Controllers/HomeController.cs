@@ -18,6 +18,18 @@ namespace ProductOrderMvc.Controllers
             return View();
         }
 
+        public IActionResult ProductManagement()
+        {
+            return View();
+        }
+        public IActionResult Order()
+        {
+            return View();
+        }
+        public IActionResult OrderManagement()
+        {
+            return View();
+        }
         public IActionResult Privacy()
         {
             return View();
